@@ -9,7 +9,6 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, Dropout, Input
 import matplotlib.pyplot as plt
 
-# Cargar el dataset
 data = pd.read_csv('dataset.csv', delimiter=';')
 
 # Eliminar posibles espacios adicionales en los nombres de las columnas
@@ -26,6 +25,12 @@ data[['VALOR NOMINAL', 'NUMERO ACCIONES', 'VALOR EFECTIVO', 'PRECIO']] = data[['
 
 # Limpiar los nombres de los emisores eliminando duplicados y espacios adicionales
 data['EMISOR'] = data['EMISOR'].str.strip()
+
+# Filtrar solo las 5 empresas
+empresas_interes = ['CORPORACION FAVORITA C.A.', 'BANCO GUAYAQUIL S.A.', 'BANCO DE LA PRODUCCION S.A . PRODUBANCO', 'CERVECERIA NACIONAL CN S A', 'BANCO PICHINCHA C.A.']
+data = data[data['EMISOR'].isin(empresas_interes)]
+
+# Obtener la lista de emisores filtrados
 emisores = sorted(data['EMISOR'].unique())
 
 def predict_stock_price_by_company(emisor, start_date, end_date):
@@ -50,7 +55,6 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     X = scaled_df[features].values
     y = scaled_df[target].values
 
-    # Definir la longitud de la secuencia
     sequence_length = 30
 
     X_seq = []
@@ -66,7 +70,7 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     # Dividir los datos en conjuntos de entrenamiento y prueba
     X_train, X_test, y_train, y_test = train_test_split(X_seq, y_seq, test_size=0.2, shuffle=False)
 
-    # Construir el modelo LSTM con ajustes
+    # Construir el modelo LSTM
     model = Sequential()
     model.add(Input(shape=(X_train.shape[1], X_train.shape[2])))
     model.add(LSTM(units=60, return_sequences=True))
@@ -77,11 +81,11 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     model.add(Dense(units=25))
     model.add(Dense(units=1))
 
-    # Compilar el modelo con optimizador Adam y regularización
+    # Compilar el modelo
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     model.compile(optimizer=optimizer, loss='mean_squared_error')
 
-    # Entrenar el modelo con más épocas
+    # Entrenar el modelo
     model.fit(X_train, y_train, batch_size=32, epochs=100, validation_split=0.1)
 
     # Filtrar los datos para predicción por rango de fechas
@@ -116,7 +120,6 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     plt.show()
 
 
-# Interfaz gráfica
 def run_interface():
     def on_predict():
         emisor = emisor_var.get()
@@ -128,27 +131,25 @@ def run_interface():
     root = tk.Tk()
     root.title("Predicción de Precios de Acciones")
 
-    # Emisor
     tk.Label(root, text="Selecciona el Emisor:").grid(row=0, column=0, padx=10, pady=10)
     emisor_var = tk.StringVar()
     emisor_menu = ttk.Combobox(root, textvariable=emisor_var, values=emisores)
     emisor_menu.grid(row=0, column=1, padx=10, pady=10)
 
-    # Fecha de inicio
+
     tk.Label(root, text="Fecha de Inicio (YYYY-MM-DD):").grid(row=1, column=0, padx=10, pady=10)
     start_date_entry = tk.Entry(root)
     start_date_entry.grid(row=1, column=1, padx=10, pady=10)
 
-    # Fecha de fin
+    
     tk.Label(root, text="Fecha de Fin (YYYY-MM-DD):").grid(row=2, column=0, padx=10, pady=10)
     end_date_entry = tk.Entry(root)
     end_date_entry.grid(row=2, column=1, padx=10, pady=10)
 
-    # Botón de Predicción
     predict_button = tk.Button(root, text="Predecir", command=on_predict)
     predict_button.grid(row=3, columnspan=2, padx=10, pady=20)
 
     root.mainloop()
 
-# Ejecutar la interfaz gráfica
+
 run_interface()
