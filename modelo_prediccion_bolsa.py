@@ -55,6 +55,7 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     X = scaled_df[features].values
     y = scaled_df[target].values
 
+    # Definir la longitud de la secuencia
     sequence_length = 30
 
     X_seq = []
@@ -66,6 +67,11 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
 
     X_seq = np.array(X_seq)
     y_seq = np.array(y_seq)
+
+    # Verificar que haya suficientes datos
+    if len(X_seq) == 0 or len(y_seq) == 0:
+        print(f"No hay suficientes datos para la empresa {emisor} en el rango de fechas seleccionado.")
+        return
 
     # Dividir los datos en conjuntos de entrenamiento y prueba
     X_train, X_test, y_train, y_test = train_test_split(X_seq, y_seq, test_size=0.2, shuffle=False)
@@ -91,6 +97,10 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     # Filtrar los datos para predicción por rango de fechas
     prediction_data = company_data[(company_data['FECHA'] >= start_date) & (company_data['FECHA'] <= end_date)]
 
+    if len(prediction_data) < sequence_length:
+        print(f"No hay suficientes datos para realizar predicciones en el rango de fechas seleccionado para {emisor}.")
+        return
+
     # Normalizar los datos para predicción
     prediction_scaled = scaler.transform(prediction_data[features + [target]])
 
@@ -100,6 +110,10 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
         prediction_seq.append(prediction_scaled[i-sequence_length:i, :len(features)])
     
     prediction_seq = np.array(prediction_seq)
+
+    if prediction_seq.shape[0] == 0:
+        print(f"No se pueden generar secuencias para la predicción con los datos disponibles en el rango de fechas seleccionado para {emisor}.")
+        return
 
     # Hacer predicciones sobre las fechas seleccionadas
     predictions = model.predict(prediction_seq)
@@ -118,6 +132,7 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     plt.ylabel('Precio')
     plt.legend()
     plt.show()
+
 
 
 def run_interface():
