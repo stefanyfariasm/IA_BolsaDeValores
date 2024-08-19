@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import tkinter as tk
 from tkinter import ttk
+from tkcalendar import DateEntry
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
@@ -70,7 +71,7 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
 
     # Verificar que haya suficientes datos
     if len(X_seq) == 0 or len(y_seq) == 0:
-        print(f"No hay suficientes datos para la empresa {emisor} en el rango de fechas seleccionado.")
+        print(f"No hay suficientes datos para la empresa {emisor}.")
         return
 
     # Dividir los datos en conjuntos de entrenamiento y prueba
@@ -97,19 +98,26 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     # Filtrar los datos para predicción por rango de fechas
     prediction_data = company_data[(company_data['FECHA'] >= start_date) & (company_data['FECHA'] <= end_date)]
 
-    if len(prediction_data) < sequence_length:
-        print(f"No hay suficientes datos para realizar predicciones en el rango de fechas seleccionado para {emisor}.")
-        return
-
     # Normalizar los datos para predicción
     prediction_scaled = scaler.transform(prediction_data[features + [target]])
 
-    # Crear secuencias para la predicción
-    prediction_seq = []
-    for i in range(sequence_length, len(prediction_scaled)):
-        prediction_seq.append(prediction_scaled[i-sequence_length:i, :len(features)])
-    
-    prediction_seq = np.array(prediction_seq)
+    # Si no hay suficientes datos para formar una secuencia en el rango seleccionado,
+    # se usa la secuencia más reciente de la compañía
+    if len(prediction_data) < sequence_length:
+        # Usar los últimos 'sequence_length' días de datos para predicción
+        prediction_seq = scaled_data[-sequence_length:, :-1]  # omitimos la última columna (target)
+        prediction_dates = company_data['FECHA'][-sequence_length:]
+    else:
+        # Crear secuencias para la predicción desde los datos seleccionados
+        prediction_seq = []
+        for i in range(sequence_length, len(prediction_scaled)):
+            prediction_seq.append(prediction_scaled[i-sequence_length:i, :len(features)])
+        
+        prediction_seq = np.array(prediction_seq)
+        prediction_dates = prediction_data['FECHA'].iloc[sequence_length:]
+
+    # Asegurarse de que tenemos la forma correcta para la predicción
+    prediction_seq = np.array([prediction_seq]) if len(prediction_seq.shape) == 2 else prediction_seq
 
     if prediction_seq.shape[0] == 0:
         print(f"No se pueden generar secuencias para la predicción con los datos disponibles en el rango de fechas seleccionado para {emisor}.")
@@ -124,22 +132,23 @@ def predict_stock_price_by_company(emisor, start_date, end_date):
     # Comparar las predicciones con los valores reales
     real_prices = prediction_data['PRECIO'].values[sequence_length:]
 
+    # Mostrar las fechas en el gráfico
     plt.figure(figsize=(14, 5))
-    plt.plot(real_prices, color='blue', label='Precio Real')
-    plt.plot(predictions, color='red', label='Precio Predicho')
+    plt.plot(prediction_dates, real_prices, color='blue', label='Precio Real')
+    plt.plot(prediction_dates, predictions, color='red', label='Precio Predicho')
     plt.title(f'Predicción de Precio de Acciones para {emisor}')
-    plt.xlabel('Tiempo')
+    plt.xlabel('Fechas')
     plt.ylabel('Precio')
+    plt.xticks(rotation=45)  # Rotar las fechas para mejor visualización
     plt.legend()
     plt.show()
-
 
 
 def run_interface():
     def on_predict():
         emisor = emisor_var.get()
-        start_date = start_date_entry.get()
-        end_date = end_date_entry.get()
+        start_date = pd.to_datetime(start_date_entry.get_date())
+        end_date = pd.to_datetime(end_date_entry.get_date())
 
         predict_stock_price_by_company(emisor, start_date, end_date)
 
@@ -151,14 +160,12 @@ def run_interface():
     emisor_menu = ttk.Combobox(root, textvariable=emisor_var, values=emisores)
     emisor_menu.grid(row=0, column=1, padx=10, pady=10)
 
-
-    tk.Label(root, text="Fecha de Inicio (YYYY-MM-DD):").grid(row=1, column=0, padx=10, pady=10)
-    start_date_entry = tk.Entry(root)
+    tk.Label(root, text="Fecha de Inicio:").grid(row=1, column=0, padx=10, pady=10)
+    start_date_entry = DateEntry(root, date_pattern='yyyy-mm-dd')
     start_date_entry.grid(row=1, column=1, padx=10, pady=10)
 
-    
-    tk.Label(root, text="Fecha de Fin (YYYY-MM-DD):").grid(row=2, column=0, padx=10, pady=10)
-    end_date_entry = tk.Entry(root)
+    tk.Label(root, text="Fecha de Fin:").grid(row=2, column=0, padx=10, pady=10)
+    end_date_entry = DateEntry(root, date_pattern='yyyy-mm-dd')
     end_date_entry.grid(row=2, column=1, padx=10, pady=10)
 
     predict_button = tk.Button(root, text="Predecir", command=on_predict)
@@ -166,5 +173,5 @@ def run_interface():
 
     root.mainloop()
 
-
 run_interface()
+
